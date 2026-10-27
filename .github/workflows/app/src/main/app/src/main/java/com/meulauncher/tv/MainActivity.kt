@@ -1,9 +1,11 @@
 package com.meulauncher.tv
 
 import android.app.Activity
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.util.Log
 import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -11,10 +13,30 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 
 class MainActivity : Activity() {
-    private lateinit var adapter: AppAdapter
+    private var adapter: AppAdapter? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val prefs = getSharedPreferences("diag", Context.MODE_PRIVATE)
+        val old = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { t, e ->
+            prefs.edit().putString("crash", Log.getStackTraceString(e)).commit()
+            old?.uncaughtException(t, e)
+        }
+        val saved = prefs.getString("crash", null)
+        if (saved != null) {
+            prefs.edit().remove("crash").commit()
+            showText("ERRO ANTERIOR (tire uma foto):\n\n" + saved.take(1800))
+            return
+        }
+        try {
+            buildUi()
+        } catch (e: Throwable) {
+            showText("ERRO AO MONTAR A TELA:\n\n" + Log.getStackTraceString(e).take(1800))
+        }
+    }
+
+    private fun buildUi() {
         val column = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.parseColor("#101418"))
@@ -30,8 +52,9 @@ class MainActivity : Activity() {
             clipToPadding = false
             setPadding(0, dp(24), 0, 0)
         }
-        adapter = AppAdapter { open(it) }
-        list.adapter = adapter
+        val a = AppAdapter { open(it) }
+        adapter = a
+        list.adapter = a
         column.addView(title)
         column.addView(
             list,
@@ -40,9 +63,24 @@ class MainActivity : Activity() {
         setContentView(column)
     }
 
+    private fun showText(msg: String) {
+        val tv = TextView(this).apply {
+            text = msg
+            textSize = 13f
+            setTextColor(Color.WHITE)
+            setBackgroundColor(Color.parseColor("#101418"))
+            setPadding(dp(32), dp(24), dp(32), dp(24))
+        }
+        setContentView(tv)
+    }
+
     override fun onResume() {
         super.onResume()
-        adapter.submit(loadApps())
+        try {
+            adapter?.submit(loadApps())
+        } catch (e: Throwable) {
+            showText("ERRO AO LISTAR APPS:\n\n" + Log.getStackTraceString(e).take(1800))
+        }
     }
 
     private fun loadApps(): List<AppItem> {
