@@ -16,7 +16,8 @@ jobs:
         with:
           gradle-version: 8.9
       - run: gradle assembleDebug --no-daemon
+        working-directory: .github/workflows
       - uses: actions/upload-artifact@v4
         with:
           name: launcher-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: .github/workflows/app/build/outputs/apk/debug/*.apk
